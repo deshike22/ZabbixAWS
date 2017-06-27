@@ -1,0 +1,521 @@
+{
+  "AWSTemplateFormatVersion" : "2010-09-09",
+
+  "Description" : "This is a Zabbix Proxy server deployment for AWS",
+  "Parameters": {
+    "KeyName": {
+      "Description": "Name of an existing EC2 KeyPair to enable SSH access to the instance",
+      "Type": "AWS::EC2::KeyPair::KeyName",
+      "ConstraintDescription": "must be the name of an existing EC2 KeyPair."
+    },
+    "InstanceType": {
+      "Description": "EC2 instance type",
+      "Type": "String",
+      "Default": "t2.micro",
+      "AllowedValues": [
+        "t1.micro",
+        "t2.nano",
+        "t2.micro",
+        "t2.small",
+        "t2.medium",
+        "t2.large",
+        "m1.small",
+        "m1.medium",
+        "m1.large",
+        "m1.xlarge",
+        "m2.xlarge",
+        "m2.2xlarge",
+        "m2.4xlarge",
+        "m3.medium",
+        "m3.large",
+        "m3.xlarge",
+        "m3.2xlarge",
+        "m4.large",
+        "m4.xlarge",
+        "m4.2xlarge",
+        "m4.4xlarge",
+        "m4.10xlarge",
+        "c1.medium",
+        "c1.xlarge",
+        "c3.large",
+        "c3.xlarge",
+        "c3.2xlarge",
+        "c3.4xlarge",
+        "c3.8xlarge",
+        "c4.large",
+        "c4.xlarge",
+        "c4.2xlarge",
+        "c4.4xlarge",
+        "c4.8xlarge",
+        "g2.2xlarge",
+        "g2.8xlarge",
+        "r3.large",
+        "r3.xlarge",
+        "r3.2xlarge",
+        "r3.4xlarge",
+        "r3.8xlarge",
+        "i2.xlarge",
+        "i2.2xlarge",
+        "i2.4xlarge",
+        "i2.8xlarge",
+        "d2.xlarge",
+        "d2.2xlarge",
+        "d2.4xlarge",
+        "d2.8xlarge",
+        "hi1.4xlarge",
+        "hs1.8xlarge",
+        "cr1.8xlarge",
+        "cc2.8xlarge",
+        "cg1.4xlarge"
+      ],
+      "ConstraintDescription": "must be a valid EC2 instance type."
+    },
+    "VpcId": {
+      "Description": "VPC ID to which Zabbix server belongs.",
+      "Type": "String",
+      "Default": "vpc-xxxxxxx",
+      "ConstraintDescription": "Select your preferred VPC"
+    },
+    "SubnetId": {
+      "Description": "SubnetID to which Zabbix server belongs.",
+      "Type": "String",
+      "Default": "subnet-xxxxxxx",
+      "ConstraintDescription": "Select your preferred subnet id"
+    },
+    "SSHFrom": {
+      "Description": " The IP address range that can be used to SSH to the EC2 instances",
+      "Type": "String",
+      "MinLength": "9",
+      "MaxLength": "18",
+      "Default": "0.0.0.0/0",
+      "AllowedPattern": "(\\d{1,3})\\.(\\d{1,3})\\.(\\d{1,3})\\.(\\d{1,3})/(\\d{1,2})",
+      "ConstraintDescription": "must be a valid IP CIDR range of the form x.x.x.x/x."
+    },
+    "AgentFrom": {
+      "Description": "CIDR of Zabbix agents.",
+      "Type": "String",
+      "MinLength": "9",
+      "MaxLength": "18",
+      "Default": "0.0.0.0/0",
+      "AllowedPattern": "(\\d{1,3})\\.(\\d{1,3})\\.(\\d{1,3})\\.(\\d{1,3})/(\\d{1,2})",
+      "ConstraintDescription": "must be a valid IP CIDR range of the form x.x.x.x/x."
+    },
+    "DBName": {
+      "Description": "MySQL database name",
+      "Default": "zabbix",
+      "Type": "String",
+      "MinLength": "1",
+      "MaxLength": "64",
+      "AllowedPattern": "[a-zA-Z][a-zA-Z0-9]*",
+      "ConstraintDescription": "must begin with a letter and contain only alphanumeric characters."
+    },
+    "DBUser": {
+      "Description": "Username for MySQL database access",
+      "Default": "zabbix",
+      "Type": "String",
+      "MinLength": "1",
+      "MaxLength": "16",
+      "AllowedPattern": "[a-zA-Z][a-zA-Z0-9]*",
+      "ConstraintDescription": "must begin with a letter and contain only alphanumeric characters."
+    },
+    "DBPassword": {
+      "Description": "Password for Zabbix database access. Defualt: zabbix",
+      "Default": "zabbix",
+      "NoEcho": "true",
+      "Type": "String",
+      "MinLength": "1",
+      "MaxLength": "41",
+      "AllowedPattern": "[a-zA-Z0-9]*",
+      "ConstraintDescription": "must contain only alphanumeric characters."
+    },
+    "DBRootPassword": {
+      "NoEcho": "true",
+      "Default": "Password1",
+      "Description": "Root password for MySQL. Default: Password1",
+      "Type": "String",
+      "MinLength": "1",
+      "MaxLength": "41",
+      "AllowedPattern": "[a-zA-Z0-9]*",
+      "ConstraintDescription": "must contain only alphanumeric characters."
+    },
+    "ZabbixServerIP": {
+      "Description": "Ip address of Zabbix Server",
+      "Type": "String",
+      "MinLength": "7",
+      "MaxLength": "15",
+      "Default": "127.0.0.1",
+      "AllowedPattern": "(\\d{1,3})\\.(\\d{1,3})\\.(\\d{1,3})\\.(\\d{1,3})",
+      "ConstraintDescription": "must be a valid IP x.x.x.x"
+    }
+  },
+  "Mappings" : {
+    "AWSInstanceType2Arch" : {
+      "t1.micro"    : { "Arch" : "PV64"   },
+      "t2.nano"     : { "Arch" : "HVM64"  },
+      "t2.micro"    : { "Arch" : "HVM64"  },
+      "t2.small"    : { "Arch" : "HVM64"  },
+      "t2.medium"   : { "Arch" : "HVM64"  },
+      "t2.large"    : { "Arch" : "HVM64"  },
+      "m1.small"    : { "Arch" : "PV64"   },
+      "m1.medium"   : { "Arch" : "PV64"   },
+      "m1.large"    : { "Arch" : "PV64"   },
+      "m1.xlarge"   : { "Arch" : "PV64"   },
+      "m2.xlarge"   : { "Arch" : "PV64"   },
+      "m2.2xlarge"  : { "Arch" : "PV64"   },
+      "m2.4xlarge"  : { "Arch" : "PV64"   },
+      "m3.medium"   : { "Arch" : "HVM64"  },
+      "m3.large"    : { "Arch" : "HVM64"  },
+      "m3.xlarge"   : { "Arch" : "HVM64"  },
+      "m3.2xlarge"  : { "Arch" : "HVM64"  },
+      "m4.large"    : { "Arch" : "HVM64"  },
+      "m4.xlarge"   : { "Arch" : "HVM64"  },
+      "m4.2xlarge"  : { "Arch" : "HVM64"  },
+      "m4.4xlarge"  : { "Arch" : "HVM64"  },
+      "m4.10xlarge" : { "Arch" : "HVM64"  },
+      "c1.medium"   : { "Arch" : "PV64"   },
+      "c1.xlarge"   : { "Arch" : "PV64"   },
+      "c3.large"    : { "Arch" : "HVM64"  },
+      "c3.xlarge"   : { "Arch" : "HVM64"  },
+      "c3.2xlarge"  : { "Arch" : "HVM64"  },
+      "c3.4xlarge"  : { "Arch" : "HVM64"  },
+      "c3.8xlarge"  : { "Arch" : "HVM64"  },
+      "c4.large"    : { "Arch" : "HVM64"  },
+      "c4.xlarge"   : { "Arch" : "HVM64"  },
+      "c4.2xlarge"  : { "Arch" : "HVM64"  },
+      "c4.4xlarge"  : { "Arch" : "HVM64"  },
+      "c4.8xlarge"  : { "Arch" : "HVM64"  },
+      "g2.2xlarge"  : { "Arch" : "HVMG2"  },
+      "g2.8xlarge"  : { "Arch" : "HVMG2"  },
+      "r3.large"    : { "Arch" : "HVM64"  },
+      "r3.xlarge"   : { "Arch" : "HVM64"  },
+      "r3.2xlarge"  : { "Arch" : "HVM64"  },
+      "r3.4xlarge"  : { "Arch" : "HVM64"  },
+      "r3.8xlarge"  : { "Arch" : "HVM64"  },
+      "i2.xlarge"   : { "Arch" : "HVM64"  },
+      "i2.2xlarge"  : { "Arch" : "HVM64"  },
+      "i2.4xlarge"  : { "Arch" : "HVM64"  },
+      "i2.8xlarge"  : { "Arch" : "HVM64"  },
+      "d2.xlarge"   : { "Arch" : "HVM64"  },
+      "d2.2xlarge"  : { "Arch" : "HVM64"  },
+      "d2.4xlarge"  : { "Arch" : "HVM64"  },
+      "d2.8xlarge"  : { "Arch" : "HVM64"  },
+      "hi1.4xlarge" : { "Arch" : "HVM64"  },
+      "hs1.8xlarge" : { "Arch" : "HVM64"  },
+      "cr1.8xlarge" : { "Arch" : "HVM64"  },
+      "cc2.8xlarge" : { "Arch" : "HVM64"  }
+    },
+    "AWSInstanceType2NATArch" : {
+      "t1.micro"    : { "Arch" : "NATPV64"   },
+      "t2.nano"     : { "Arch" : "NATHVM64"  },
+      "t2.micro"    : { "Arch" : "NATHVM64"  },
+      "t2.small"    : { "Arch" : "NATHVM64"  },
+      "t2.medium"   : { "Arch" : "NATHVM64"  },
+      "t2.large"    : { "Arch" : "NATHVM64"  },
+      "m1.small"    : { "Arch" : "NATPV64"   },
+      "m1.medium"   : { "Arch" : "NATPV64"   },
+      "m1.large"    : { "Arch" : "NATPV64"   },
+      "m1.xlarge"   : { "Arch" : "NATPV64"   },
+      "m2.xlarge"   : { "Arch" : "NATPV64"   },
+      "m2.2xlarge"  : { "Arch" : "NATPV64"   },
+      "m2.4xlarge"  : { "Arch" : "NATPV64"   },
+      "m3.medium"   : { "Arch" : "NATHVM64"  },
+      "m3.large"    : { "Arch" : "NATHVM64"  },
+      "m3.xlarge"   : { "Arch" : "NATHVM64"  },
+      "m3.2xlarge"  : { "Arch" : "NATHVM64"  },
+      "m4.large"    : { "Arch" : "NATHVM64"  },
+      "m4.xlarge"   : { "Arch" : "NATHVM64"  },
+      "m4.2xlarge"  : { "Arch" : "NATHVM64"  },
+      "m4.4xlarge"  : { "Arch" : "NATHVM64"  },
+      "m4.10xlarge" : { "Arch" : "NATHVM64"  },
+      "c1.medium"   : { "Arch" : "NATPV64"   },
+      "c1.xlarge"   : { "Arch" : "NATPV64"   },
+      "c3.large"    : { "Arch" : "NATHVM64"  },
+      "c3.xlarge"   : { "Arch" : "NATHVM64"  },
+      "c3.2xlarge"  : { "Arch" : "NATHVM64"  },
+      "c3.4xlarge"  : { "Arch" : "NATHVM64"  },
+      "c3.8xlarge"  : { "Arch" : "NATHVM64"  },
+      "c4.large"    : { "Arch" : "NATHVM64"  },
+      "c4.xlarge"   : { "Arch" : "NATHVM64"  },
+      "c4.2xlarge"  : { "Arch" : "NATHVM64"  },
+      "c4.4xlarge"  : { "Arch" : "NATHVM64"  },
+      "c4.8xlarge"  : { "Arch" : "NATHVM64"  },
+      "g2.2xlarge"  : { "Arch" : "NATHVMG2"  },
+      "g2.8xlarge"  : { "Arch" : "NATHVMG2"  },
+      "r3.large"    : { "Arch" : "NATHVM64"  },
+      "r3.xlarge"   : { "Arch" : "NATHVM64"  },
+      "r3.2xlarge"  : { "Arch" : "NATHVM64"  },
+      "r3.4xlarge"  : { "Arch" : "NATHVM64"  },
+      "r3.8xlarge"  : { "Arch" : "NATHVM64"  },
+      "i2.xlarge"   : { "Arch" : "NATHVM64"  },
+      "i2.2xlarge"  : { "Arch" : "NATHVM64"  },
+      "i2.4xlarge"  : { "Arch" : "NATHVM64"  },
+      "i2.8xlarge"  : { "Arch" : "NATHVM64"  },
+      "d2.xlarge"   : { "Arch" : "NATHVM64"  },
+      "d2.2xlarge"  : { "Arch" : "NATHVM64"  },
+      "d2.4xlarge"  : { "Arch" : "NATHVM64"  },
+      "d2.8xlarge"  : { "Arch" : "NATHVM64"  },
+      "hi1.4xlarge" : { "Arch" : "NATHVM64"  },
+      "hs1.8xlarge" : { "Arch" : "NATHVM64"  },
+      "cr1.8xlarge" : { "Arch" : "NATHVM64"  },
+      "cc2.8xlarge" : { "Arch" : "NATHVM64"  }
+    },
+    "AWSRegionArch2AMI" : {
+      "us-east-1"        : {"PV64" : "ami-2a69aa47", "HVM64" : "ami-6869aa05", "HVMG2" : "ami-61e27177"},
+      "us-west-2"        : {"PV64" : "ami-7f77b31f", "HVM64" : "ami-7172b611", "HVMG2" : "ami-60aa3700"},
+      "us-west-1"        : {"PV64" : "ami-a2490dc2", "HVM64" : "ami-31490d51", "HVMG2" : "ami-4b694d2b"},
+      "eu-west-1"        : {"PV64" : "ami-4cdd453f", "HVM64" : "ami-f9dd458a", "HVMG2" : "ami-2955524f"},
+      "eu-west-2"        : {"PV64" : "NOT_SUPPORTED", "HVM64" : "ami-886369ec", "HVMG2" : "NOT_SUPPORTED"},
+      "eu-central-1"     : {"PV64" : "ami-6527cf0a", "HVM64" : "ami-ea26ce85", "HVMG2" : "ami-81ac71ee"},
+      "ap-northeast-1"   : {"PV64" : "ami-3e42b65f", "HVM64" : "ami-374db956", "HVMG2" : "ami-46220c21"},
+      "ap-northeast-2"   : {"PV64" : "NOT_SUPPORTED", "HVM64" : "ami-2b408b45", "HVMG2" : "NOT_SUPPORTED"},
+      "ap-southeast-1"   : {"PV64" : "ami-df9e4cbc", "HVM64" : "ami-a59b49c6", "HVMG2" : "ami-c212aba1"},
+      "ap-southeast-2"   : {"PV64" : "ami-63351d00", "HVM64" : "ami-dc361ebf", "HVMG2" : "ami-0ad2db69"},
+      "ap-south-1"       : {"PV64" : "NOT_SUPPORTED", "HVM64" : "ami-ffbdd790", "HVMG2" : "ami-ca3042a5"},
+      "us-east-2"        : {"PV64" : "NOT_SUPPORTED", "HVM64" : "ami-f6035893", "HVMG2" : "NOT_SUPPORTED"},
+      "ca-central-1"     : {"PV64" : "NOT_SUPPORTED", "HVM64" : "ami-730ebd17", "HVMG2" : "NOT_SUPPORTED"},
+      "sa-east-1"        : {"PV64" : "ami-1ad34676", "HVM64" : "ami-6dd04501", "HVMG2" : "NOT_SUPPORTED"},
+      "cn-north-1"       : {"PV64" : "ami-77559f1a", "HVM64" : "ami-8e6aa0e3", "HVMG2" : "NOT_SUPPORTED"}
+    }
+  },
+  "Resources" : {
+    "ZabbixSecurityGroup" : {
+      "Type" : "AWS::EC2::SecurityGroup",
+      "Properties" : {
+        "VpcId": { "Ref": "VpcId" },
+        "GroupDescription": "Enable zabbix service access via port 10051 and connecting to Zabbix server",
+        "SecurityGroupIngress" : [{
+          "IpProtocol": "tcp",
+          "FromPort" : "10051",
+          "ToPort" : "10051",
+          "CidrIp" : { "Ref" : "AgentFrom"}
+        },{
+          "IpProtocol" : "tcp",
+          "FromPort" : "22",
+          "ToPort" : "22",
+          "CidrIp" : { "Ref" : "SSHFrom" }
+        }]
+      }
+    },
+    "ZabbixProxy" : {
+      "Type" : "AWS::EC2::Instance",
+      "Metadata" : {
+        "AWS::CloudFormation::Init" : {
+          "configSets" : {
+            "create" : [
+              "install",
+              "configure"
+            ]
+          },
+          "install" : {
+            "packages" : {
+              "rpm": {
+                "zabbix" : "http://repo.zabbix.com/zabbix/3.0/rhel/6/x86_64/zabbix-release-3.0-1.el6.noarch.rpm"
+              },
+              "yum" : {
+                "mysql"               : [],
+                "mysql-server"        : [],
+                "mysql-libs"          : [],
+                "php"                 : [],
+                "zabbix-agent"        : [],
+                "zabbix-proxy-mysql"  : []
+              }
+            },
+            "files" : {
+              "/tmp/setup.mysql" : {
+                "content" : {
+                  "Fn::Join" : [
+                    "",
+                    [
+                      "CREATE DATABASE ",{ "Ref" : "DBName" }," character set utf8 collate utf8_bin;\n",
+                      "GRANT ALL ON ",{ "Ref" : "DBName" },".* TO '",{ "Ref" : "DBUser" },"'@localhost IDENTIFIED BY '",{ "Ref" : "DBPassword" },"';\n",
+                      "FLUSH PRIVILEGES;\n"
+                    ]
+                  ]
+                },
+                "mode" : "000777",
+                "owner" : "mysql",
+                "group" : "mysql"
+              },
+              "/etc/cfn/cfn-hup.conf" : {
+                "content" : { "Fn::Join" : ["", [
+                  "[main]\n",
+                  "stack=", { "Ref" : "AWS::StackId" }, "\n",
+                  "region=", { "Ref" : "AWS::Region" }, "\n"
+                ]]},
+                "mode"    : "000400",
+                "owner"   : "root",
+                "group"   : "root"
+              },
+              "/etc/cfn/hooks.d/cfn-auto-reloader.conf" : {
+                "content": { "Fn::Join" : ["", [
+                  "[cfn-auto-reloader-hook]\n",
+                  "triggers=post.update\n",
+                  "path=Resources.ZabbixProxy.Metadata.AWS::CloudFormation::Init\n",
+                  "action=/opt/aws/bin/cfn-init -v ",
+                  "         --stack ", { "Ref" : "AWS::StackName" },
+                  "         --resource ZabbixProxy ",
+                  "         --configsets create ",
+                  "         --region ", { "Ref" : "AWS::Region" }, "\n",
+                  "runas=root\n"
+                ]]}
+              }
+            },
+            "services" : {
+              "sysvinit" : {
+                "mysqld" : {
+                  "enabled" : "true",
+                  "ensureRunning" : "true"
+                },
+                "zabbix-agent" : {
+                  "enabled" : "true",
+                  "ensureRunning" : "true"
+                },
+                "zabbix-proxy" : {
+                  "enabled" : "true",
+                  "ensureRunning" : "true"
+                },
+                "cfn-hup" : {
+                  "enabled" : "true",
+                  "ensureRunning" : "true",
+                  "files" : [
+                    "/etc/cfn/cfn-hup.conf",
+                    "/etc/cfn/hooks.d/cfn-auto-reloader.conf"
+                  ]
+                }
+              }
+            }
+          },
+          "configure" : {
+            "commands" : {
+              "01_set_mysql_root_password" : {
+                "command" : {
+                  "Fn::Join" : [
+                    "",
+                    [
+                      "mysqladmin -u root password '",{ "Ref" : "DBRootPassword" },"'\n"
+                    ]
+                  ]
+                }
+              },
+              "02_create_database" : {
+                "command" : {
+                  "Fn::Join" : [
+                    "",
+                    [
+                      "mysql -u root -p",{ "Ref" : "DBRootPassword" }," < /tmp/setup.mysql\n",
+                      "zcat $(rpm -ql zabbix-proxy-mysql|grep schema.sql) | mysql -uroot -p",{ "Ref" : "DBRootPassword" }," ",{ "Ref" : "DBName" },"\n"
+                    ]
+                  ]
+                }
+              },
+              "03_configure_zabbix_proxy_conf" : {
+                "command" : {
+                  "Fn::Join" : [
+                    "",
+                    [
+                      "sed -i.bak -e '/^DB\\(Name\\|User\\|Password\\)/d' /etc/zabbix/zabbix_proxy.conf\n",
+                      "sed -i 's/# DBName=/DBName=",{ "Ref" : "DBName" },"/' /etc/zabbix/zabbix_proxy.conf\n",
+                      "sed -i 's/# DBUser=/DBUser=",{ "Ref" : "DBUser" },"/' /etc/zabbix/zabbix_proxy.conf\n",
+                      "sed -i 's/# DBPassword=/DBPassword=",{ "Ref" : "DBPassword" },"/' /etc/zabbix/zabbix_proxy.conf\n",
+                      "sed -i 's/^Server=127.0.0.1/Server=",{ "Ref" : "ZabbixServerIP" },"/' /etc/zabbix/zabbix_proxy.conf\n",
+                      "sed -i 's/^Hostname=/# Hostname=/' /etc/zabbix/zabbix_proxy.conf\n",
+                      "sed -i 's/# HostnameItem=/HostnameItem=/' /etc/zabbix/zabbix_proxy.conf\n",
+                      "/etc/init.d/zabbix-proxy restart\n"
+
+                    ]
+                  ]
+                }
+              },
+              "04_configure_zabbix_agent_conf" : {
+                "command" : {
+                  "Fn::Join" : [
+                    "",
+                    [
+                      "sed -i.bak -e '/^ServerActive/d' /etc/zabbix/zabbix_agentd.conf\n",
+                      "sed -i 's/# ServerActive=/ServerActive=",{ "Ref" : "ZabbixServerIP" },"/' /etc/zabbix/zabbix_agentd.conf\n",
+                      "sed -i 's/^Hostname=/# Hostname=/' /etc/zabbix/zabbix_agentd.conf\n",
+                      "sed -i 's/# HostnameItem=/HostnameItem=/' /etc/zabbix/zabbix_agentd.conf\n",
+                      "sed -i 's/# HostMetadata=/HostMetadata=Linux/' /etc/zabbix/zabbix_agentd.conf\n",
+                      "/etc/init.d/zabbix-agentd restart\n"
+                    ]
+                  ]
+                }
+              }
+            }
+          }
+        }
+      },
+      "Properties" : {
+        "ImageId": {
+          "Fn::FindInMap" : [
+            "AWSRegionArch2AMI", { "Ref" : "AWS::Region"}, {
+              "Fn::FindInMap" : [ "AWSInstanceType2Arch", { "Ref" : "InstanceType"}, "Arch" ]
+            }
+          ]
+        },
+        "InstanceType" : { "Ref" : "InstanceType" },
+        "KeyName" : { "Ref" : "KeyName"},
+        "NetworkInterfaces" : [{
+          "AssociatePublicIpAddress" : true,
+          "DeleteOnTermination" : true,
+          "DeviceIndex" : "0",
+          "SubnetId" : { "Ref" : "SubnetId"},
+          "GroupSet": [
+            { "Ref" : "ZabbixSecurityGroup" }
+          ]
+        }],
+        "Tags" : [
+          {
+          "Key" : "Name",
+          "Value" : "zabbix-server"
+        },{
+          "Key" : "Environment",
+          "Value": "Dev"
+        }],
+        "UserData" : {
+          "Fn::Base64" : {
+            "Fn::Join" : [
+              "",
+              [
+                "#!bin/bash -xe\n",
+                "yum update -y aws-cfn-bootstrap\n",
+
+                "# Install packages\n",
+                "/opt/aws/bin/cfn-init -v ",
+                "     --stack ",{ "Ref": "AWS::StackName" },
+                "     --resource ZabbixProxy ",
+                "     --configset create ",
+                "     --region ", { "Ref" : "AWS::Region" }, "\n",
+
+                "# Signal the status from cfn-init\n",
+                "/opt/aws/bin/cfn-signal -e $? ",
+                "     --stack ", { "Ref" : "AWS::StackName" },
+                "     --resource ZabbixProxy ",
+                "     --region ", { "Ref" : "AWS::Region" }, "\n"
+
+              ]
+            ]
+          }
+        }
+      }
+    }
+  },
+  "Outputs" : {
+    "ZabbixProxy" : {
+      "Description" : "Zabbix Proxy Endpoint",
+      "Value" : {
+        "Fn::Join" : [
+          "",
+          [
+            "Configure your agents parameter ServerActive=",
+            {
+              "Fn::GetAtt" : [
+                "ZabbixProxy",
+                "PublicIp"
+              ]
+            }
+          ]]
+      }
+    }
+  }
+}
