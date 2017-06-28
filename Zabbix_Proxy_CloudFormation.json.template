@@ -1,7 +1,7 @@
 {
   "AWSTemplateFormatVersion" : "2010-09-09",
 
-  "Description" : "This is a Zabbix Proxy server deployment for AWS",
+  "Description" : "This is a Zabbix Proxy server deployment.",
   "Parameters": {
     "KeyName": {
       "Description": "Name of an existing EC2 KeyPair to enable SSH access to the instance",
@@ -73,13 +73,13 @@
     "VpcId": {
       "Description": "VPC ID to which Zabbix server belongs.",
       "Type": "String",
-      "Default": "vpc-xxxxxxx",
+      "Default": "vpc-f64bf49f",
       "ConstraintDescription": "Select your preferred VPC"
     },
     "SubnetId": {
       "Description": "SubnetID to which Zabbix server belongs.",
       "Type": "String",
-      "Default": "subnet-xxxxxxx",
+      "Default": "subnet-2750ab6a",
       "ConstraintDescription": "Select your preferred subnet id"
     },
     "SSHFrom": {
@@ -366,14 +366,6 @@
                   "enabled" : "true",
                   "ensureRunning" : "true"
                 },
-                "zabbix-agent" : {
-                  "enabled" : "true",
-                  "ensureRunning" : "true"
-                },
-                "zabbix-proxy" : {
-                  "enabled" : "true",
-                  "ensureRunning" : "true"
-                },
                 "cfn-hup" : {
                   "enabled" : "true",
                   "ensureRunning" : "true",
@@ -419,8 +411,7 @@
                       "sed -i 's/# DBPassword=/DBPassword=",{ "Ref" : "DBPassword" },"/' /etc/zabbix/zabbix_proxy.conf\n",
                       "sed -i 's/^Server=127.0.0.1/Server=",{ "Ref" : "ZabbixServerIP" },"/' /etc/zabbix/zabbix_proxy.conf\n",
                       "sed -i 's/^Hostname=/# Hostname=/' /etc/zabbix/zabbix_proxy.conf\n",
-                      "sed -i 's/# HostnameItem=/HostnameItem=/' /etc/zabbix/zabbix_proxy.conf\n",
-                      "/etc/init.d/zabbix-proxy restart\n"
+                      "sed -i 's/# HostnameItem=/HostnameItem=/' /etc/zabbix/zabbix_proxy.conf\n"
 
                     ]
                   ]
@@ -435,10 +426,22 @@
                       "sed -i 's/# ServerActive=/ServerActive=",{ "Ref" : "ZabbixServerIP" },"/' /etc/zabbix/zabbix_agentd.conf\n",
                       "sed -i 's/^Hostname=/# Hostname=/' /etc/zabbix/zabbix_agentd.conf\n",
                       "sed -i 's/# HostnameItem=/HostnameItem=/' /etc/zabbix/zabbix_agentd.conf\n",
-                      "sed -i 's/# HostMetadata=/HostMetadata=Linux/' /etc/zabbix/zabbix_agentd.conf\n",
-                      "/etc/init.d/zabbix-agentd restart\n"
+                      "sed -i 's/# HostMetadata=/HostMetadata=Linux/' /etc/zabbix/zabbix_agentd.conf\n"
+
                     ]
                   ]
+                }
+              }
+            },
+            "services" : {
+              "sysvinit": {
+                "zabbix-agent" : {
+                  "enabled" : "true",
+                  "ensureRunning" : "true"
+                },
+                "zabbix-proxy" : {
+                  "enabled" : "true",
+                  "ensureRunning" : "true"
                 }
               }
             }
